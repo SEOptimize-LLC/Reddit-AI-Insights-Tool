@@ -173,6 +173,26 @@ Reddit-AI-Insights-Tool/
 
 ## Troubleshooting
 
+### Reddit 404 Error ("Subreddit not found")
+This is the most common error. If you see a 404 error:
+
+**Check your Reddit API app type:**
+1. Go to https://www.reddit.com/prefs/apps/
+2. Click on your app
+3. Make sure it's set to **"script"** type (not "web app" or "installed app")
+4. If it's the wrong type, create a new app with the correct type
+
+**Verify your credentials:**
+- The **client_id** is the string under your app name (looks like: `AbCdEf123456`)
+- The **client_secret** is labeled "secret" (longer string)
+- Copy these exactly with NO extra spaces or quotes
+- Update your Streamlit secrets with the correct values
+
+**Check the subreddit name:**
+- Enter just the name (e.g., "SEO" not "r/SEO")
+- Make sure the subreddit exists and is not private
+- Try a popular subreddit first (e.g., "python", "AskReddit")
+
 ### App won't start
 - Check that all secrets are properly configured
 - Verify API keys are valid and have proper permissions

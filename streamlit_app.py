@@ -67,7 +67,8 @@ def init_clients():
         reddit = praw.Reddit(
             client_id=reddit_client_id,
             client_secret=reddit_client_secret,
-            user_agent=reddit_user_agent
+            user_agent=reddit_user_agent,
+            check_for_async=False
         )
 
         oai = OpenAI(api_key=openai_api_key)
@@ -77,6 +78,60 @@ def init_clients():
         st.error(f"❌ Error initializing API clients: {str(e)}")
         st.info("Please configure your API keys in Streamlit secrets (Settings → Secrets)")
         st.stop()
+
+# Validate Reddit connection
+def validate_reddit_connection(reddit, subreddit_name: str) -> bool:
+    """Validate that Reddit API is working and subreddit exists"""
+    try:
+        # Test if we can access Reddit
+        reddit.read_only = True
+
+        # Try to access the subreddit
+        sub = reddit.subreddit(subreddit_name)
+
+        # This will trigger the API call to check if subreddit exists
+        _ = sub.display_name
+
+        return True
+    except Exception as e:
+        error_msg = str(e).lower()
+        if "404" in error_msg or "not found" in error_msg:
+            st.error(f"❌ Subreddit 'r/{subreddit_name}' not found or is private")
+            st.info("""
+            **Possible reasons:**
+            - Subreddit name is misspelled (don't include 'r/')
+            - Subreddit is private or banned
+            - Subreddit doesn't exist
+
+            Try a popular subreddit like: SEO, python, AskReddit
+            """)
+        elif "403" in error_msg or "forbidden" in error_msg:
+            st.error("❌ Reddit API authentication failed")
+            st.info("""
+            **Please check your Reddit API credentials:**
+            1. Go to https://www.reddit.com/prefs/apps/
+            2. Make sure your app is set to **"script"** type
+            3. Copy the correct **client_id** (under the app name)
+            4. Copy the correct **client_secret**
+            5. Update your Streamlit secrets with the correct values
+            """)
+        elif "401" in error_msg or "unauthorized" in error_msg:
+            st.error("❌ Reddit API credentials are invalid")
+            st.info("""
+            **Your Reddit API credentials are incorrect:**
+            1. Verify your REDDIT_CLIENT_ID in secrets
+            2. Verify your REDDIT_CLIENT_SECRET in secrets
+            3. Make sure there are no extra spaces or quotes
+            """)
+        else:
+            st.error(f"❌ Error connecting to Reddit: {str(e)}")
+            st.info("""
+            **Troubleshooting steps:**
+            1. Check your internet connection
+            2. Verify all Reddit API credentials in secrets
+            3. Try again in a few moments
+            """)
+        return False
 
 # Topic definitions
 TOPICS = [
@@ -501,6 +556,11 @@ def main():
     # Run analysis button
     if st.sidebar.button("🚀 Run Analysis", type="primary", use_container_width=True):
         try:
+            # Validate Reddit connection and subreddit
+            with st.spinner(f"🔍 Validating connection to r/{subreddit}..."):
+                if not validate_reddit_connection(reddit, subreddit):
+                    st.stop()
+
             # Fetch Reddit data
             with st.spinner(f"📡 Fetching data from r/{subreddit}..."):
                 df = fetch_reddit_data(reddit, subreddit, num_threads, num_comments, listing_type)
