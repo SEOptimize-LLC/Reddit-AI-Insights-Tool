@@ -83,13 +83,11 @@ def init_clients():
 def validate_reddit_connection(reddit, subreddit_name: str) -> bool:
     """Validate that Reddit API is working and subreddit exists"""
     try:
-        # Test if we can access Reddit
-        reddit.read_only = True
-
         # Try to access the subreddit
         sub = reddit.subreddit(subreddit_name)
 
         # This will trigger the API call to check if subreddit exists
+        # Try a simple property access that requires API call
         _ = sub.display_name
 
         return True
@@ -256,15 +254,36 @@ def _safe_json_parse(txt: str) -> dict:
 
 # Fetch Reddit data
 def fetch_reddit_data(reddit, subreddit: str, num_threads: int, num_comments_total: int,
-                     listing: str = "hot", max_chars: int = 4000) -> pd.DataFrame:
-    sub = reddit.subreddit(subreddit)
+                     listing: str = "hot", time_filter: str = "week", max_chars: int = 4000) -> pd.DataFrame:
+    """
+    Fetch threads and comments from a subreddit.
+    Wrapped with error handling for common Reddit API issues.
 
-    if listing == "new":
-        submissions = list(sub.new(limit=num_threads))
-    elif listing == "top":
-        submissions = list(sub.top(limit=num_threads))
-    else:
-        submissions = list(sub.hot(limit=num_threads))
+    Args:
+        time_filter: For "top" listing - one of: hour, day, week, month, year, all
+    """
+    try:
+        sub = reddit.subreddit(subreddit)
+
+        # Fetch submissions based on listing type
+        # Note: .top() requires time_filter parameter
+        if listing == "new":
+            submissions = list(sub.new(limit=num_threads))
+        elif listing == "top":
+            submissions = list(sub.top(time_filter=time_filter, limit=num_threads))
+        else:
+            submissions = list(sub.hot(limit=num_threads))
+
+    except Exception as e:
+        error_msg = str(e).lower()
+        if "404" in error_msg:
+            raise Exception(f"Subreddit r/{subreddit} not found. Please verify the subreddit name and that it's public.")
+        elif "403" in error_msg or "forbidden" in error_msg:
+            raise Exception("Reddit API authentication failed. Please check your REDDIT_CLIENT_ID and REDDIT_CLIENT_SECRET are correct and your app type is 'script'.")
+        elif "401" in error_msg:
+            raise Exception("Reddit API credentials are invalid. Please verify your REDDIT_CLIENT_ID and REDDIT_CLIENT_SECRET in Streamlit secrets.")
+        else:
+            raise Exception(f"Reddit API error: {str(e)}")
 
     records = []
     for s in submissions:
@@ -518,6 +537,16 @@ def main():
     num_comments = st.sidebar.slider("Number of Comments", min_value=5, max_value=200, value=15)
     listing_type = st.sidebar.selectbox("Listing Type", ["hot", "new", "top"])
 
+    # Time filter for "top" posts
+    time_filter = "week"  # default
+    if listing_type == "top":
+        time_filter = st.sidebar.selectbox(
+            "Time Filter (for Top posts)",
+            ["hour", "day", "week", "month", "year", "all"],
+            index=2,
+            help="Time period for top posts"
+        )
+
     # OpenAI settings
     st.sidebar.subheader("OpenAI Settings")
     model = st.sidebar.selectbox(
@@ -563,7 +592,7 @@ def main():
 
             # Fetch Reddit data
             with st.spinner(f"📡 Fetching data from r/{subreddit}..."):
-                df = fetch_reddit_data(reddit, subreddit, num_threads, num_comments, listing_type)
+                df = fetch_reddit_data(reddit, subreddit, num_threads, num_comments, listing_type, time_filter)
 
             st.success(f"✅ Fetched {len(df[df['type']=='thread'])} threads and {len(df[df['type']=='comment'])} comments")
 
