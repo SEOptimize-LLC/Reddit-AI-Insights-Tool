@@ -1,0 +1,26 @@
+# Streamlit
+streamlit>=1.28.0
+
+# Reddit API
+praw>=7.7.0
+
+# OpenAI API
+openai>=1.12.0
+
+# Data processing
+pandas==2.2.2
+numpy<2.3
+
+# NLP and Text Processing
+spacy>=3.7.0
+en-core-web-sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl
+nltk>=3.8.0
+rake-nltk>=1.0.6
+
+# Visualization
+matplotlib>=3.7.0
+wordcloud>=1.9.0
+
+# Utilities
+tenacity<9
+tqdm>=4.65.0
